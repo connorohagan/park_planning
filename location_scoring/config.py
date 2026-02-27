@@ -25,6 +25,11 @@ MIN_CAR_PARK_SIZE_m2 = 500
 # network cut-off
 WALK_CUTOFF_M = 800
 
+# selection for greedy algorithm
+TOP_K = 10
+# minimum distance between the suggested sites
+MIN_SITE_SEPERATION_M = WALK_CUTOFF_M * 0.75
+
 # scoring weights
 W_DEMAND_TOTAL = 0.45
 W_DEMAND_UNDERSERVED = 0.20

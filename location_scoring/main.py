@@ -6,7 +6,7 @@ import osmnx as ox
 from . import config
 from .data_loading import get_aoi, load_lsoa_and_population
 from .osm_layers import load_osm_features
-from .network_analysis import load_walk_network, compute_accessibility_demand
+from .network_analysis import load_walk_network, greedy_dynamic_select_sites
 from .flood import load_flood_layers_wales, compute_flood_penalty
 from .scoring import build_candidates, score_candidates
 from .plotting import draw_map
@@ -52,16 +52,31 @@ def main():
 
     # candidates and demand
     candidates = build_candidates(parking_poly)
-    candidates, lsoa_aug = compute_accessibility_demand(
-        candidates, parks_poly, lsoa, G_proj, config.WALK_CUTOFF_M
-    )
+    # candidates, lsoa_aug = compute_accessibility_demand(
+    #     candidates, parks_poly, lsoa, G_proj, config.WALK_CUTOFF_M
+    # )
 
     # flood penalty
     candidates = compute_flood_penalty(candidates, rivers, surface, config.W_RIVERS, config.W_SURFACE)
 
-    # score
-    candidates_scored = score_candidates(
+    # # score
+    # candidates_scored = score_candidates(
+    #     candidates,
+    #     W_DEMAND_TOTAL=config.W_DEMAND_TOTAL,
+    #     W_DEMAND_UNDERSERVED=config.W_DEMAND_UNDERSERVED,
+    #     W_PARK_DIST=config.W_PARK_DIST,
+    #     W_SIZE=config.W_SIZE,
+    #     W_FLOOD=config.W_FLOOD,
+    # )
+
+    selected, lsoa_aug = greedy_dynamic_select_sites(
         candidates,
+        parks_poly,
+        lsoa,
+        G_proj,
+        walk_cutoff_m=config.WALK_CUTOFF_M,
+        k=config.TOP_K,
+        min_site_seperation_m=config.MIN_SITE_SEPERATION_M,
         W_DEMAND_TOTAL=config.W_DEMAND_TOTAL,
         W_DEMAND_UNDERSERVED=config.W_DEMAND_UNDERSERVED,
         W_PARK_DIST=config.W_PARK_DIST,
@@ -69,9 +84,9 @@ def main():
         W_FLOOD=config.W_FLOOD,
     )
 
-    print("\nTop 10 candidate sites by score:")
-    print(candidates_scored[[
-        "cand_id","score","demand_total_pop","demand_underserved_pop","park_dist_m","area_m2","flood_risk_0_1"
+    print(f"\nGreedy-dynamic Top {config.TOP_K} selected sites:")
+    print(selected[[
+        "rank", "cand_id","score","demand_total_pop","demand_underserved_pop","park_dist_m","area_m2","flood_risk_0_1"
     ]].head(10))
 
     # zoom bounds for detailed view
@@ -92,7 +107,7 @@ def main():
         aoi_geom=aoi_geom, edges=edges, lsoa=lsoa_aug,
         parks_poly=parks_poly, parking_poly=parking_poly, removed=removed, parking_point=parking_point,
         rivers=rivers, surface=surface,
-        candidates_scored=candidates_scored,
+        candidates_scored=selected,
         purples_dark=config.purples_dark,
         crs_metric=config.CRS_METRIC,
         zoom_bounds=zoom_bounds, is_zoomed=False,
@@ -106,7 +121,7 @@ def main():
         aoi_geom=aoi_geom, edges=edges, lsoa=lsoa_aug,
         parks_poly=parks_poly, parking_poly=parking_poly, removed=removed, parking_point=parking_point,
         rivers=rivers, surface=surface,
-        candidates_scored=candidates_scored,
+        candidates_scored=selected,
         purples_dark=config.purples_dark,
         crs_metric=config.CRS_METRIC,
         zoom_bounds=zoom_bounds, is_zoomed=True,
