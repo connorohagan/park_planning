@@ -2,14 +2,105 @@
 
 import matplotlib.pyplot as plt
 import osmnx as ox
+import folium
 
 from . import config
-from .data_loading import get_aoi, load_lsoa_and_population
+from .data_loading import get_aoi, load_lsoa_and_population, build_population_grid
 from .osm_layers import load_osm_features
 from .network_analysis import load_walk_network, greedy_dynamic_select_sites
 from .flood import load_flood_layers_wales, compute_flood_penalty
 from .scoring import build_candidates, score_candidates
-from .plotting import draw_map
+from .folium_python import build_folium_map
+
+
+def ask_YorN(prompt):
+    while True:
+        answer = input(prompt).strip().lower()
+        if answer in {"y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
+        print("Enter Y or N")
+
+def ask_int(prompt, min_value):
+    while True:
+        raw = input(prompt).strip()
+        try:
+            value = int(raw)
+            if min_value is not None and value < min_value:
+                print(f"Enter an int >= {min_value}")
+                continue
+            return value
+        except ValueError:
+            print("Enter an int")
+
+def ask_float(prompt, min_value, max_value):
+    while True:
+        raw = input(prompt).strip()
+        try:
+            value = float(raw)
+            if min_value is not None and value < min_value:
+                print(f"enter a number >= {min_value}")
+                continue
+            if max_value is not None and value > max_value:
+                print(f"enter a nunmber <= {max_value}")
+                continue
+            return value
+        except ValueError:
+            print("enter a number")
+
+def build_stopping_rules(default_rules: dict):
+    print("\nChoose stopping criteria for this run")
+
+    rules = {
+        "max_sites": None,
+        "target_overall_access_percent": None,
+        "target_underserved_recovery_percent": None,
+    }
+
+    use_max_sites = ask_YorN(
+        f"Use max number of new parks? (Defaults to: {default_rules.get('max_sites')}) - ENTER Y OR N"
+    )
+    print()
+    if use_max_sites:
+        default_max = default_rules.get("max_sites", 10)
+        raw = input(f"enter max number of sites (default {default_max})").strip()
+        if raw =="":
+            rules["max_sites"] = int(default_max)
+        else:
+            try:
+                rules["max_sites"] = int(raw)
+                if rules["max_sites"] < 1:
+                    print("using default instead.")
+                    rules["max_sites"] = int(default_max)
+            except ValueError:
+                print("using default instead.")
+                rules["max_sites"] = int(default_max)
+
+    print()
+    use_overall = ask_YorN("Use target overall accessibility percentage? - ENTER Y OR N")
+    if use_overall:
+        rules["target_overall_access_percent"] = ask_float(
+            "Enter percentage",
+            min_value=0.0,
+            max_value=100.0,
+        )
+    print()
+    use_underserved = ask_YorN("use target underserved recovery percentage? - ENTER Y OR N")
+    if use_underserved:
+        rules["target_underserved_recovery_percent"] = ask_float(
+            "enter percentage",
+            min_value=0.0,
+            max_value=100.0,
+        )
+    print()
+    if all(v is None for v in rules.values()):
+        print("\nno criteria selected. using default max_sites.\n")
+        rules["max_sites"] = int(default_rules.get("max_sites", 10))
+    
+    print("stopping rules for this run:", rules)
+    return rules
+
 
 def main():
     ox.settings.use_cache = True
@@ -17,6 +108,9 @@ def main():
 
     # get first name place from full place name "Cardiff" from "Cardiff, Wales, UK"
     place_name = config.place.split(",")[0].strip()
+
+    #stopping rules
+    stopping_rules = build_stopping_rules(config.DEFAULT_STOPPING_RULES)
 
     # AOI
     _, aoi_geom = get_aoi(config.place, config.CRS_METRIC, config.BUFFER_M)
@@ -29,6 +123,11 @@ def main():
         aoi_geom,
         config.CRS_METRIC
     )
+
+    # testing - demand points 100 x 100
+    demand_grid_pts = build_population_grid(lsoa, cell_size_m=100.0, return_polys=False)
+    demand_grid_poly = build_population_grid(lsoa, cell_size_m=100.0, return_polys=True)
+    demand_grid_poly = demand_grid_poly.nlargest(16000, "population")
 
     # OSM features
     parks_poly, parking_poly, removed, parking_point = load_osm_features(
@@ -69,68 +168,75 @@ def main():
     #     W_FLOOD=config.W_FLOOD,
     # )
 
-    selected, lsoa_aug = greedy_dynamic_select_sites(
-        candidates,
-        parks_poly,
-        lsoa,
-        G_proj,
-        walk_cutoff_m=config.WALK_CUTOFF_M,
-        k=config.TOP_K,
-        min_site_seperation_m=config.MIN_SITE_SEPERATION_M,
-        W_DEMAND_TOTAL=config.W_DEMAND_TOTAL,
-        W_DEMAND_UNDERSERVED=config.W_DEMAND_UNDERSERVED,
-        W_PARK_DIST=config.W_PARK_DIST,
-        W_SIZE=config.W_SIZE,
-        W_FLOOD=config.W_FLOOD,
-    )
+    outputs = []
 
-    print(f"\nGreedy-dynamic Top {config.TOP_K} selected sites:")
-    print(selected[[
-        "rank", "cand_id","score","demand_total_pop","demand_underserved_pop","park_dist_m","area_m2","flood_risk_0_1"
-    ]].head(10))
+    for preset_name, W, in config.SCORING_PRESETS.items():
+        print(f"\nRunning preset: {preset_name} - {W.get('desc','')}")
+        selected, lsoa_aug, stop_info = greedy_dynamic_select_sites(
+            candidates,
+            parks_poly,
+            demand_grid_pts,
+            lsoa,
+            G_proj,
+            walk_cutoff_m=config.WALK_CUTOFF_M,
+            stopping_rules=stopping_rules,
+            min_site_seperation_m=config.MIN_SITE_SEPERATION_M,
+            W_DEMAND_TOTAL=W["W_DEMAND_TOTAL"],
+            W_DEMAND_UNDERSERVED=W["W_DEMAND_UNDERSERVED"],
+            W_PARK_DIST=W["W_PARK_DIST"],
+            W_SIZE=W["W_SIZE"],
+            W_FLOOD=W["W_FLOOD"],
+        )
 
-    # zoom bounds for detailed view
-    zoom_center_x = 318500
-    zoom_center_y = 176500
-    zoom_width = 3500
-    zoom_bounds = [
-        zoom_center_x - (zoom_width/2),
-        zoom_center_x + (zoom_width/2),
-        zoom_center_y - (zoom_width/2),
-        zoom_center_y + (zoom_width/2)
-    ]
+        print(f"\nselected sites ({preset_name}):")
+        print(selected[[
+            "rank", "cand_id","score","demand_total_pop","demand_underserved_pop","park_dist_m","area_m2","flood_risk_0_1"
+        ]].head(10))
+        print("\nstopping summary:")
+        print(f" Initial overall accessibility: {stop_info['initial_overall_access_pct']:.2f}%")
+        print(f" Sites selected: {stop_info['sites_selected']}")
+        print(f" Overall accessibility achieved: {stop_info['overall_access_percent']:.2f}%")
+        print(f" Underserved recovery achieved: {stop_info['underserved_recovery_percent']:.2f}%")
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 12), constrained_layout=True)
+        if stop_info["met_conditions"]:
+            print(" Stopping criteria met:")
+            for cond in stop_info["met_conditions"]:
+                print(f" - {cond['message']}")
+        else:
+            print( " no stopping criteria was met")
+        
 
-    draw_map(
-        ax1,
-        aoi_geom=aoi_geom, edges=edges, lsoa=lsoa_aug,
-        parks_poly=parks_poly, parking_poly=parking_poly, removed=removed, parking_point=parking_point,
-        rivers=rivers, surface=surface,
-        candidates_scored=selected,
-        purples_dark=config.purples_dark,
-        crs_metric=config.CRS_METRIC,
-        zoom_bounds=zoom_bounds, is_zoomed=False,
-        topN=10,
-        title_full="Full {place_name} View",
-        title_zoom="Detailed {place_name} View"
-    )
+        m = build_folium_map(
+            aoi_geom=aoi_geom,
+            crs_metric=config.CRS_METRIC,
+            candidates_scored=selected,
+            topN=len(selected),
+            lsoa=lsoa_aug,
+            parks_poly=parks_poly,
+            parking_poly=parking_poly,
+            rivers=rivers,
+            surface=surface,
+            demand_grid_poly=demand_grid_poly,
+            G_proj=G_proj,
+            walk_cutoff_m=config.WALK_CUTOFF_M,
+        )
 
-    draw_map(
-        ax2,
-        aoi_geom=aoi_geom, edges=edges, lsoa=lsoa_aug,
-        parks_poly=parks_poly, parking_poly=parking_poly, removed=removed, parking_point=parking_point,
-        rivers=rivers, surface=surface,
-        candidates_scored=selected,
-        purples_dark=config.purples_dark,
-        crs_metric=config.CRS_METRIC,
-        zoom_bounds=zoom_bounds, is_zoomed=True,
-        topN=10,
-        title_full="Full Cardiff View",
-        title_zoom="Detailed View"
-    )
+        output_file = f"output_map_{preset_name}.html"
+        m.save(output_file)
+        outputs.append((preset_name, output_file))
+        print(f"Saved {preset_name} Folium Map")
 
-    plt.show()
+    index_html = ["<html><body><h2>Preset map outputs</h2><ul>"]
+    for preset_name, output_file in outputs:
+        desc = config.SCORING_PRESETS[preset_name].get("desc", "")
+        index_html.append(f'<li><a href="{output_file}">{preset_name}</a> — {desc}</li>')
+    index_html.append("</ul></body></html>")
+
+    with open("output_index.html", "w", encoding="utf-8") as f:
+        f.write("\n".join(index_html))
+
+
+    print("saved: output_index.html")
 
 if __name__ == "__main__":
     main()

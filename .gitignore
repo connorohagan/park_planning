@@ -3,3 +3,4 @@ Tests
 Sanity_Map_Checks
 cache
 data
+__pycache__
