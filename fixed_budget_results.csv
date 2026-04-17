@@ -1,0 +1,37 @@
+City,Walk Cutoff,Preset,Initial access (%),Final Access (%),Access gain (pts),Underserved recovery (%)
+Cardiff,400m,Balanced,31.65%,40.80%,9.15,13.39%
+Cardiff,400m,Demand Focused,31.65%,40.15%,8.5,12.44%
+Cardiff,400m,Gap coverage,31.65%,40.91%,9.26,13.55%
+Cardiff,400m,Accessibility focused,31.65%,39.79%,8.14,11.91%
+Cardiff,400m,Safety first,31.65%,38.28%,6.63,9.71%
+Cardiff,400m,Feasibility first,31.65%,32.94%,1.29,1.90%
+Cardiff,800m,Balanced,70.58%,80.93%,10.35,35.19%
+Cardiff,800m,Demand Focused,70.58%,76.35%,5.77,19.60%
+Cardiff,800m,Gap coverage,70.58%,81.07%,10.49,35.67%
+Cardiff,800m,Accessibility focused,70.58%,80.31%,9.73,33.07%
+Cardiff,800m,Safety first,70.58%,73.78%,3.2,10.90%
+Cardiff,800m,Feasibility first,70.58%,72.01%,1.43,4.88%
+Cardiff,1200m,Balanced,82.85%,90.63%,7.78,45.39%
+Cardiff,1200m,Demand Focused,82.85%,87.27%,4.42,25.80%
+Cardiff,1200m,Gap coverage,82.85%,91.30%,8.45,49.29%
+Cardiff,1200m,Accessibility focused,82.85%,90.87%,8.02,46.75%
+Cardiff,1200m,Safety first,82.85%,88.53%,5.68,33.14%
+Cardiff,1200m,Feasibility first,82.85%,87.52%,4.67,27.26%
+Swansea,400m,Balanced,24.48%,31.04%,6.56,8.68%
+Swansea,400m,Demand Focused,24.48%,30.08%,5.6,7.41%
+Swansea,400m,Gap coverage,24.48%,31.71%,7.23,9.57%
+Swansea,400m,Accessibility focused,24.48%,30.62%,6.14,8.12%
+Swansea,400m,Safety first,24.48%,31.06%,6.58,8.71%
+Swansea,400m,Feasibility first,24.48%,25.23%,0.75,0.99%
+Swansea,800m,Balanced,63.29%,68.63%,5.34,14.55%
+Swansea,800m,Demand Focused,63.29%,65.36%,2.07,5.64%
+Swansea,800m,Gap coverage,63.29%,70.65%,7.36,20.06%
+Swansea,800m,Accessibility focused,63.29%,67.48%,4.19,11.42%
+Swansea,800m,Safety first,63.29%,70.02%,6.73,18.35%
+Swansea,800m,Feasibility first,63.29%,65.50%,2.21,6.03%
+Swansea,1200m,Balanced,82.34%,88.16%,5.82,32.96%
+Swansea,1200m,Demand Focused,82.34%,82.79%,0.45,2.56%
+Swansea,1200m,Gap coverage,82.34%,88.63%,6.29,35.62%
+Swansea,1200m,Accessibility focused,82.34%,87.27%,4.93,27.93%
+Swansea,1200m,Safety first,82.34%,87.26%,4.92,27.85%
+Swansea,1200m,Feasibility first,82.34%,84.14%,1.8,10.18%

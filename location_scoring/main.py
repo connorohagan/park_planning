@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import osmnx as ox
 import folium
+import pandas as pd
 
 from . import config
 from .data_loading import get_aoi, load_lsoa_and_population, build_population_grid
@@ -59,12 +60,12 @@ def build_stopping_rules(default_rules: dict):
     }
 
     use_max_sites = ask_YorN(
-        f"Use max number of new parks? (Defaults to: {default_rules.get('max_sites')}) - ENTER Y OR N"
+        f"Use max number of new parks? (Defaults to: {default_rules.get('max_sites')}) - ENTER Y OR N "
     )
     print()
     if use_max_sites:
         default_max = default_rules.get("max_sites", 10)
-        raw = input(f"enter max number of sites (default {default_max})").strip()
+        raw = input(f"enter max number of sites (default {default_max}) ").strip()
         if raw =="":
             rules["max_sites"] = int(default_max)
         else:
@@ -78,18 +79,18 @@ def build_stopping_rules(default_rules: dict):
                 rules["max_sites"] = int(default_max)
 
     print()
-    use_overall = ask_YorN("Use target overall accessibility percentage? - ENTER Y OR N")
+    use_overall = ask_YorN("Use target overall accessibility percentage? - ENTER Y OR N ")
     if use_overall:
         rules["target_overall_access_percent"] = ask_float(
-            "Enter percentage",
+            "Enter percentage ",
             min_value=0.0,
             max_value=100.0,
         )
     print()
-    use_underserved = ask_YorN("use target underserved recovery percentage? - ENTER Y OR N")
+    use_underserved = ask_YorN("use target underserved recovery percentage? - ENTER Y OR N ")
     if use_underserved:
         rules["target_underserved_recovery_percent"] = ask_float(
-            "enter percentage",
+            "enter percentage ",
             min_value=0.0,
             max_value=100.0,
         )
@@ -102,6 +103,84 @@ def build_stopping_rules(default_rules: dict):
     return rules
 
 
+def export_run_csv(preset_name, selected, all_candidates_scored, stop_info, stopping_rules, weights):
+
+    safe_preset = preset_name.replace(" ", "_").lower()
+
+    selected_export = selected.copy()
+    if "geometry" in selected_export.columns:
+        selected_export["centroid_x"] = selected_export.geometry.centroid.x
+        selected_export["centroid_y"] = selected_export.geometry.centroid.y
+    selected_columns = ["rank", "cand_id", "score", "demand_total_pop", "demand_underserved_pop", "park_dist_m", "area_m2", "flood_risk_0_1", "flood_norm",
+                        "centroid_x", "centroid_y"]
+    selected_columns = [c for c in selected_columns if c in selected_export.columns]
+    selected_export[selected_columns].to_csv(
+        f"outputs/selected_sites/selected_sites_{safe_preset}.csv",
+        index=False
+    )
+    
+
+    if all_candidates_scored is not None and len(all_candidates_scored) > 0:
+        all_export = all_candidates_scored.copy()
+
+        if "geometry" in all_export.columns:
+            all_export["centroid_x"] = all_export.geometry.centroid.x
+            all_export["centroid_y"] = all_export.geometry.centroid.y
+
+        all_columns = [
+            "iteration",
+            "selected_this_iteration",
+            "cand_id",
+            "cand_node",
+            "score",
+            "demand_total_pop",
+            "demand_underserved_pop",
+            "park_dist_m",
+            "area_m2",
+            "flood_risk_0_1",
+            "flood_norm",
+            "demand_total_norm",
+            "demand_underserved_norm",
+            "park_dist_norm",
+            "size_norm",
+            "centroid_x",
+            "centroid_y"
+        ]
+        all_columns = [c for c in all_columns if c in all_export.columns]
+
+        all_export[all_columns].to_csv(
+            f"outputs/all_candidate_scores/all_candidate_scores_{safe_preset}.csv",
+            index=False
+        )
+
+    
+    # run summary csv
+    summary_row = {
+        "preset_name": preset_name,
+        "preset_desc": weights.get("desc", ""),
+        "W_DEMAND_TOTAL": weights.get("W_DEMAND_TOTAL"),
+        "W_DEMAND_UNDERSERVED": weights.get("W_DEMAND_UNDERSERVED"),
+        "W_PARK_DIST": weights.get("W_PARK_DIST"),
+        "W_SIZE": weights.get("W_SIZE"),
+        "W_FLOOD": weights.get("W_FLOOD"),
+        "max_sites_rule": stopping_rules.get("max_sites"),
+        "target_overall_access_percent_rule": stopping_rules.get("target_overall_access_percent"),
+        "target_underserved_recovery_percent_rule": stopping_rules.get("target_underserved_recovery_percent"),
+        "initial_overall_access_pct": stop_info.get("initial_overall_access_pct"),
+        "final_overall_access_percent": stop_info.get("overall_access_percent"),
+        "final_underserved_recovery_percent": stop_info.get("underserved_recovery_percent"),
+        "sites_selected": stop_info.get("sites_selected"),
+        "stopping_criteria_met": " | ".join(
+            cond.get("message", "") for cond in stop_info.get("met_conditions", [])
+        ) if stop_info.get("met_conditions") else "None",
+
+    }
+
+    pd.DataFrame([summary_row]).to_csv(
+        f"outputs/run_summaries/run_summary_{safe_preset}.csv",
+        index=False
+    )
+
 def main():
     ox.settings.use_cache = True
     ox.settings.log_console = True
@@ -113,7 +192,7 @@ def main():
     stopping_rules = build_stopping_rules(config.DEFAULT_STOPPING_RULES)
 
     # AOI
-    _, aoi_geom = get_aoi(config.place, config.CRS_METRIC, config.BUFFER_M)
+    _, aoi_geom = get_aoi(config.place, config.CRS_METRIC, config.BUFFER_M, max_radius=config.AOI_RADIUS_CAP_M)
 
     # LSOA and populations
     lsoa = load_lsoa_and_population(
@@ -124,20 +203,20 @@ def main():
         config.CRS_METRIC
     )
 
-    # testing - demand points 100 x 100
+    #  - demand points 100 x 100
     demand_grid_pts = build_population_grid(lsoa, cell_size_m=100.0, return_polys=False)
     demand_grid_poly = build_population_grid(lsoa, cell_size_m=100.0, return_polys=True)
-    demand_grid_poly = demand_grid_poly.nlargest(16000, "population")
+    #demand_grid_poly = demand_grid_poly.nlargest(16000, "population")
 
     # OSM features
     parks_poly, parking_poly, removed, parking_point = load_osm_features(
-        config.place,
+        aoi_geom,
         config.CRS_METRIC,
         config.MIN_CAR_PARK_SIZE_m2
     )
 
     # walk network
-    G_proj, edges = load_walk_network(config.place, config.CRS_METRIC)
+    G_proj, edges = load_walk_network(aoi_geom, config.CRS_METRIC)
 
     # flood
     rivers, surface = load_flood_layers_wales(
@@ -172,7 +251,7 @@ def main():
 
     for preset_name, W, in config.SCORING_PRESETS.items():
         print(f"\nRunning preset: {preset_name} - {W.get('desc','')}")
-        selected, lsoa_aug, stop_info = greedy_dynamic_select_sites(
+        selected, lsoa_aug, stop_info, all_candidates_scored = greedy_dynamic_select_sites(
             candidates,
             parks_poly,
             demand_grid_pts,
@@ -191,7 +270,7 @@ def main():
         print(f"\nselected sites ({preset_name}):")
         print(selected[[
             "rank", "cand_id","score","demand_total_pop","demand_underserved_pop","park_dist_m","area_m2","flood_risk_0_1"
-        ]].head(10))
+        ]])
         print("\nstopping summary:")
         print(f" Initial overall accessibility: {stop_info['initial_overall_access_pct']:.2f}%")
         print(f" Sites selected: {stop_info['sites_selected']}")
@@ -205,6 +284,13 @@ def main():
         else:
             print( " no stopping criteria was met")
         
+        export_run_csv(preset_name=preset_name,
+                       selected=selected,
+                       all_candidates_scored=all_candidates_scored,
+                       stop_info=stop_info,
+                       stopping_rules=stopping_rules,
+                       weights=W,
+                       )
 
         m = build_folium_map(
             aoi_geom=aoi_geom,

@@ -9,15 +9,22 @@ def build_candidates(parking_poly):
     c["area_m2"] = c.geometry.area
     return c
 
-def score_candidates(candidates, *, W_DEMAND_TOTAL: float, W_DEMAND_UNDERSERVED: float, W_PARK_DIST: float, W_SIZE: float, W_FLOOD: float):
+def score_candidates(candidates, *, W_DEMAND_TOTAL: float, W_DEMAND_UNDERSERVED: float, W_PARK_DIST: float, W_SIZE: float, W_FLOOD: float, PARK_DISTANCE_SCORE_CAP_M: float | None = None,):
     c = candidates.copy()
 
     c["demand_total_norm"] = minmax(c["demand_total_pop"])
     c["demand_underserved_norm"] = minmax(c["demand_underserved_pop"])
 
     park_dist_series = c["park_dist_m"].replace(np.inf, np.nan)
-    fallback = park_dist_series.max(skipna=True)
-    c["park_dist_norm"] = minmax(park_dist_series.fillna(fallback))
+
+    if PARK_DISTANCE_SCORE_CAP_M is not None:
+        park_dist_for_score = park_dist_series.clip(upper=float(PARK_DISTANCE_SCORE_CAP_M))
+        fallback = float(PARK_DISTANCE_SCORE_CAP_M)
+    else:
+        park_dist_for_score = park_dist_series
+        fallback = park_dist_for_score.max(skipna=True)
+
+    c["park_dist_norm"] = minmax(park_dist_for_score.fillna(fallback))
 
     c["size_norm"] = minmax(np.log1p(c["area_m2"]))
 
