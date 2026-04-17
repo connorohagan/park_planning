@@ -1,0 +1,2 @@
+preset_name,preset_desc,W_DEMAND_TOTAL,W_DEMAND_UNDERSERVED,W_PARK_DIST,W_SIZE,W_FLOOD,max_sites_rule,target_overall_access_percent_rule,target_underserved_recovery_percent_rule,initial_overall_access_pct,final_overall_access_percent,final_underserved_recovery_percent,sites_selected,stopping_criteria_met
+balanced,General-purpose trade-off: Balanced weights.,0.2,0.2,0.2,0.2,0.2,30,70.0,,65.23101812840694,70.22936382773578,14.375875939619018,8,overall accessibility target met(70.23% >= 70.00%)

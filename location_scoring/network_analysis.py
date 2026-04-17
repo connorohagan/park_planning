@@ -4,6 +4,7 @@ import osmnx as ox
 import numpy as np
 import networkx as nx
 import geopandas as gpd
+import pandas as pd
 from .scoring import score_candidates
 
 def demand_pts_to_nodes_pop(demand_points_gdf, G_proj, pop_col: str = "population"):
@@ -19,8 +20,9 @@ def demand_pts_to_nodes_pop(demand_points_gdf, G_proj, pop_col: str = "populatio
 
     return demand, node_pop_total, demand_nodes_set
 
-def load_walk_network(place: str, crs: str):
-    G = ox.graph.graph_from_place(place, network_type="walk")
+def load_walk_network(aoi_geom, crs):
+    aoi_wgs = gpd.GeoSeries([aoi_geom], crs=crs).to_crs("EPSG:4326").iloc[0]
+    G = ox.graph.graph_from_polygon(aoi_wgs, network_type="walk")
     G_proj = ox.project_graph(G, to_crs=crs)
     edges = ox.graph_to_gdfs(G_proj, nodes=False, edges=True)
     return G_proj, edges
@@ -209,6 +211,9 @@ def greedy_dynamic_select_sites(
     remaining = candidates.copy()
     selected_rows = []
     excluded_nodes = set()
+    #final_candidates_scores = None
+    iteration_score_tables = []
+    iteration_number = 1
 
     metrics = current_access_metrics()
     stop_info = {
@@ -241,7 +246,14 @@ def greedy_dynamic_select_sites(
             W_PARK_DIST=W_PARK_DIST,
             W_SIZE=W_SIZE,
             W_FLOOD=W_FLOOD,
+            PARK_DISTANCE_SCORE_CAP_M=walk_cutoff_m * 2
         )
+        #final_candidates_scores = rem_scored.copy()
+        iter_table = rem_scored.copy()
+        iter_table["iteration"] = iteration_number
+        iter_table["selected_this_iteration"] = False
+        iter_table.loc[iter_table.index[0], "selected_this_iteration"] = True
+        iteration_score_tables.append(iter_table)
 
         best = rem_scored.iloc[0]
         selected_rows.append(best)
@@ -301,6 +313,7 @@ def greedy_dynamic_select_sites(
 
         #remove chosen
         remaining = remaining[remaining["cand_id"] != best["cand_id"]].copy()
+        iteration_number += 1
 
     if len(selected_rows) == 0:
         selected = candidates.head(0).copy()
@@ -319,4 +332,13 @@ def greedy_dynamic_select_sites(
     stop_info["overall_access_percent"] = final_metrics["overall_access_percent"]
     stop_info["underserved_recovery_percent"] = final_metrics["underserved_recovery_percent"]
 
-    return selected, lsoa, stop_info
+    if iteration_score_tables:
+        all_candidates_scored = gpd.GeoDataFrame(
+            pd.concat(iteration_score_tables, ignore_index=True),
+            geometry="geometry",
+            crs=candidates.crs,
+        )
+    else:
+        all_candidates_scored = gpd.GeoDataFrame(columns=["iteration"], geometry=[], crs=candidates.crs)
+
+    return selected, lsoa, stop_info, all_candidates_scored

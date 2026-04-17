@@ -44,6 +44,24 @@ def geom_to_wgs(geom, src_crs: str):
     gs = gpd.GeoSeries([geom], crs=src_crs).to_crs(CRS_WEB)
     return gs.iloc[0]
 
+# flood styles to show different severity levels
+def rivers_style(feat):
+    risk_val = feat["properties"].get("risk_val", None)
+    if risk_val == 3:
+        return folium_style(color="navy", weight=1.5, fill_color="navy", fill_opacity=0.35, opacity=0.9)
+    if risk_val == 2:
+        return folium_style(color="royalblue", weight=1.2, fill_color="royalblue", fill_opacity=0.25, opacity=0.8)
+    return folium_style(color="blue", weight=1, fill_color="blue", fill_opacity=0.15, opacity=0.7)
+
+def surface_style(feat):
+    risk_val = feat["properties"].get("risk_val", None)
+    if risk_val == 3:
+        return folium_style(color="darkcyan", weight=1.2, fill_color="darkcyan", fill_opacity=0.35, opacity=0.9)
+    if risk_val == 2:
+        return folium_style(color="deepskyblue", weight=1.0, fill_color="deepskyblue", fill_opacity=0.25, opacity=0.8)
+    if risk_val == 1:
+        return folium_style(color="lightskyblue", weight=0.8, fill_color="lightskyblue", fill_opacity=0.18, opacity=0.7)
+    return folium_style(color="deepskyblue", weight=1, fill_color="deepskyblue", fill_opacity=0.20, opacity=0.7)
 
 def folium_style(color="black", weight=1, fill_color=None, fill_opacity=0.0, opacity=1.0):
     return {
@@ -71,9 +89,29 @@ def build_folium_map(
 ):
     
     aoi_wgs = geom_to_wgs(aoi_geom, src_crs=crs_metric)
-    center = [aoi_wgs.centroid.y, aoi_wgs.centroid.x]
+    minx, miny, maxx, maxy = aoi_wgs.bounds
+    lon_shift = (maxx - minx) * 0.15 
 
-    m = folium.Map(location=center, zoom_start=12, tiles=None)
+    center = [aoi_wgs.centroid.y, aoi_wgs.centroid.x - lon_shift]
+
+    m = folium.Map(location=center, zoom_start=11.5, tiles=None)
+
+    ### global styles
+    style_header = """
+    <style>
+        .leaflet-container, .leaflet-control, .leaflet-popup-content,
+        .leaflet-tooltip, .legend, .folium-map {
+            font-family: sans-serif !important;
+            font-size: 16px !important;
+        }
+        .leaflet-control-layers-overlays label,
+        .leaflet-control-layers-base label {
+            font-family: sans-serif !important;
+            font-size: 16px !important;
+        }
+    </style>
+    """
+    m.get_root().header.add_child(folium.Element(style_header))
 
     folium.TileLayer(
         tiles="CartoDB positron",
@@ -100,6 +138,7 @@ def build_folium_map(
                 vmax = vmin + 1.0
             cmap = linear.YlOrRd_09.scale(vmin, vmax)
             cmap.caption = "Population density"
+            cmap = cmap.to_step(n=6)
 
             def style_fn(feat):
                 v = feat["properties"].get("pop_density", None)
@@ -132,30 +171,63 @@ def build_folium_map(
             style_function=lambda _: folium_style(color="darkgreen", weight=1, fill_color="limegreen", fill_opacity=0.45),
         ).add_to(m)
 
-    #rivers/sea risk
+
     if rivers is not None and len(rivers) > 0:
+        keep_cols = ["geometry", "risk_val"]
+        if "risk" in rivers.columns:
+            keep_cols.append("risk")
         # clip to AOI - trying to speed up lag in the output
-        rivers_clip = gpd.clip(rivers, aoi_geom)[["geometry"]].copy()
+        rivers_clip = gpd.clip(rivers, aoi_geom)[keep_cols].copy()
 
         # simplify in ESPG:27700 - trying to speed up output
         rivers_clip["geometry"] = rivers_clip["geometry"].simplify(tolerance=25, preserve_topology=True)
         rivers_web = as_wgs84(rivers_clip)
+
+        tooltip_fields = ["risk_val"]
+        tooltip_names = ["Severity value:"]
+        if "risk" in rivers_web.columns:
+            tooltip_fields = ["risk", "risk_val"]
+            tooltip_names = ["Rivers/Sea class:", "Severity value:"]
+
         folium.GeoJson(
             rivers_web,
-            name="Rivers/Sea",
-            style_function=lambda _: folium_style(color="blue", weight=2, fill_opacity=0.15),
+            name="Rivers/Sea flood risk",
+            show=False,
+            style_function=rivers_style,
+            tooltip=folium.GeoJsonTooltip(
+                fields=tooltip_fields,
+                aliases=tooltip_names,
+                localize=True
+            ),
         ).add_to(m)
 
     # surface water risk
     if surface is not None and len(surface) > 0:
-        surface_clip = gpd.clip(surface, aoi_geom)[["geometry"]].copy()
+        keep_cols = ["geometry", "risk_val"]
+        if "Risk" in surface.columns:
+            keep_cols.append("Risk")
+
+        surface_clip = gpd.clip(surface, aoi_geom)[keep_cols].copy()
         # simplify in ESPG:27700 - trying to speed up output
         surface_clip["geometry"] = surface_clip["geometry"].simplify(tolerance=25, preserve_topology=True)
         surface_web = as_wgs84(surface_clip)
+
+        tooltip_fields = ["risk_val"]
+        tooltip_names = ["Severity value:"]
+        if "Risk" in surface_web.columns:
+            tooltip_fields = ["Risk", "risk_val"]
+            tooltip_names = ["Surface-Water class:", "Severity value:"]
+
         folium.GeoJson(
             surface_web,
-            name="Surface Water",
-            style_function=lambda _: folium_style(color="deepskyblue", weight=1, fill_color="deepskyblue", fill_opacity=0.25),
+            name="Surface-Water flood risk",
+            show=False,
+            style_function=surface_style,
+            tooltip=folium.GeoJsonTooltip(
+                fields=tooltip_fields,
+                aliases=tooltip_names,
+                localize=True
+            ),
         ).add_to(m)
 
     # parking polygons
@@ -214,6 +286,12 @@ def build_folium_map(
             du = row.get("demand_underserved_pop", None)
             area = row.get("area_m2", None)
 
+            #flood details
+            rivers_percent = row.get("rivers_flood_percent", None)
+            rivers_risk = row.get("rivers_risk_0_1", None)
+            surface_percent = row.get("surface_flood_percent", None)
+            surface_risk = row.get("surface_risk_0_1", None)
+
             # Pre-format values safely
             score_s = f"{float(score):.4f}" if score is not None and score == score else "—"
             flood_s = f"{float(flood):.3f}" if flood is not None and flood == flood else "—"
@@ -222,17 +300,29 @@ def build_folium_map(
             du_s = f"{float(du):,.0f}" if du is not None and du == du else "—"
             area_s = f"{float(area):,.0f}" if area is not None and area == area else "—"
 
+            # flood details
+            rivers_percent_s = f"{100 * float(rivers_percent):.1f}%" if rivers_percent is not None and rivers_percent == rivers_percent else "—"
+            rivers_risk_s = f"{float(rivers_risk):.3f}" if rivers_risk is not None and rivers_risk == rivers_risk else "—"
+            surface_percent_s = f"{100 * float(surface_percent):.1f}%" if surface_percent is not None and surface_percent == surface_percent else "—"
+            surface_risk_s = f"{float(surface_risk):.3f}" if surface_risk is not None and surface_risk == surface_risk else "—"
+
 
             popup_html = f"""
-            <div style="font-family: Arial; font-size: 13px;">
+            <div style="font-family: sans-serif; font-size: 16px;">
               <b>Rank:</b> {rank}<br>
               <b>Candidate ID:</b> {row.get('cand_id', '')}<br>
               <b>Score:</b> {score_s}<br>
-              <b>Flood risk (0–1):</b> {flood_s}<br>
-              <b>Nearest-park dist (m):</b> {park_dist_s}<br>
+              <hr style="margin: 6px 0;">
+              <b>Nearest-park distance (m):</b> {park_dist_s}<br>
               <b>Demand total:</b> {dt_s}<br>
               <b>Demand underserved:</b> {du_s}<br>
               <b>Area (m²):</b> {area_s}<br>
+              <hr style="margin: 6px 0;">
+              <b>Overall flood risk (0–1):</b> {flood_s}<br>
+              <b>Rivers/Sea flood cover:</b> {rivers_percent_s}<br>
+              <b>Rivers/Sea risk score:</b> {rivers_risk_s}<br>
+              <b>Surface-water flood cover:</b> {surface_percent_s}<br>
+              <b>Surface-water risk score:</b> {surface_risk_s}<br>
             </div>
             """
 
