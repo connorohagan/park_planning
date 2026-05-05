@@ -6,13 +6,6 @@ import pandas as pd
 import numpy as np
 from shapely.geometry import box, Point
 
-# def get_aoi(place: str, crs: str, buffer_m: float):
-#     aoi_gdf = ox.geocode_to_gdf(place).to_crs(crs)
-#     geom = aoi_gdf.geometry.iloc[0]
-#     if geom.geom_type == "Point":
-#         geom = geom.buffer(6000)
-#     geom = geom.buffer(buffer_m).buffer(0)
-#     return aoi_gdf, geom
 
 def point_wgs_to_metric(lat, lon, crs):
     return gpd.GeoSeries([Point(lon, lat)], crs="EPSG:4326").to_crs(crs).iloc[0]
@@ -178,29 +171,3 @@ def build_population_grid(
     pts = grid2.copy()
     pts["geometry"] = pts.geometry.representative_point()
     return pts[["grid_id", pop_col, "geometry"]]
-
-
-    #join back to full grid
-    # grid2 = grid.merge(pop_by_cell, on="grid_id", how="left")
-    # grid2[pop_col] = grid2[pop_col].fillna(0.0).astype(float)
-
-    # retrn centroid points
-    # pts = grid2.copy()
-    # pts["geometry"] = pts.geometry.centroid
-    # pts = pts[pts[pop_col] > 0].copy()
-
-    # if return_polys:
-    #     return pts[["grid_id", pop_col, "geometry"]]
-
-    # pts = grid2.copy()
-    # pts["geometry"] = pts.geometry.centroid
-    # pts = pts[pts[pop_col] > 0 ].copy()
-    # return pts[["grid_id", pop_col, "geometry"]]
-
-    # if return_polys:
-    #     grid_poly = grid2[grid2[pop_col] > 0].copy()
-    #     return grid_poly[["grid_id", pop_col, "geometry"]]
-    # pts = grid2.copy()
-    # pts["geometry"] = pts.geometry.centroid
-    # pts = pts[pts[pop_col] > 0].copy()
-    # return pts[["grid_id", pop_col, "geometry"]]

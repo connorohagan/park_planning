@@ -1,2 +1,2 @@
 preset_name,preset_desc,W_DEMAND_TOTAL,W_DEMAND_UNDERSERVED,W_PARK_DIST,W_SIZE,W_FLOOD,max_sites_rule,target_overall_access_percent_rule,target_underserved_recovery_percent_rule,initial_overall_access_pct,final_overall_access_percent,final_underserved_recovery_percent,sites_selected,stopping_criteria_met
-feasibility_first,Feasibility focused - both size and avoid flood risk.,0.1,0.1,0.1,0.4,0.3,10,,,85.36063732602635,87.01610392059297,11.308324217623031,10,Max number of sites reached (10)
+feasibility_first,Feasibility focused - both size and avoid flood risk.,0.1,0.1,0.1,0.4,0.3,10,,,65.23101812840694,67.78544146526409,7.346845375832418,10,Max number of sites reached (10)

@@ -5,3 +5,6 @@ cache
 data
 __pycache__/
 Heatmaps
+outputs
+output_map_distance_only.html
+output_map_size_only.html

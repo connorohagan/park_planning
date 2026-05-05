@@ -103,7 +103,7 @@ def build_stopping_rules(default_rules: dict):
     return rules
 
 
-def export_run_csv(preset_name, selected, all_candidates_scored, stop_info, stopping_rules, weights):
+def export_run_csv(preset_name, selected, all_candidates_scored, iteration_metrics_df, stop_info, stopping_rules, weights):
 
     safe_preset = preset_name.replace(" ", "_").lower()
 
@@ -150,6 +150,12 @@ def export_run_csv(preset_name, selected, all_candidates_scored, stop_info, stop
 
         all_export[all_columns].to_csv(
             f"outputs/all_candidate_scores/all_candidate_scores_{safe_preset}.csv",
+            index=False
+        )
+
+    if iteration_metrics_df is not None and len(iteration_metrics_df) > 0:
+        iteration_metrics_df.to_csv(
+            f"outputs/run_summaries/diminishing_returns_{safe_preset}.csv",
             index=False
         )
 
@@ -237,21 +243,11 @@ def main():
     # flood penalty
     candidates = compute_flood_penalty(candidates, rivers, surface, config.W_RIVERS, config.W_SURFACE)
 
-    # # score
-    # candidates_scored = score_candidates(
-    #     candidates,
-    #     W_DEMAND_TOTAL=config.W_DEMAND_TOTAL,
-    #     W_DEMAND_UNDERSERVED=config.W_DEMAND_UNDERSERVED,
-    #     W_PARK_DIST=config.W_PARK_DIST,
-    #     W_SIZE=config.W_SIZE,
-    #     W_FLOOD=config.W_FLOOD,
-    # )
-
     outputs = []
 
     for preset_name, W, in config.SCORING_PRESETS.items():
         print(f"\nRunning preset: {preset_name} - {W.get('desc','')}")
-        selected, lsoa_aug, stop_info, all_candidates_scored = greedy_dynamic_select_sites(
+        selected, lsoa_aug, stop_info, all_candidates_scored, iteration_metrics_df = greedy_dynamic_select_sites(
             candidates,
             parks_poly,
             demand_grid_pts,
@@ -287,6 +283,7 @@ def main():
         export_run_csv(preset_name=preset_name,
                        selected=selected,
                        all_candidates_scored=all_candidates_scored,
+                       iteration_metrics_df=iteration_metrics_df,
                        stop_info=stop_info,
                        stopping_rules=stopping_rules,
                        weights=W,
