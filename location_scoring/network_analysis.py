@@ -51,15 +51,6 @@ def compute_accessibility_demand(candidates_gdf, parks_poly, demand_points_gdf, 
     underserved_nodes = {n for n in demand_nodes_set if dist_to_park.get(n, np.inf) > walk_cutoff_m}
 
 
-
-    # # pre-aggregrate population per node
-    # node_pop_total = lsoa.groupby("lsoa_node")["population"].sum().to_dict()
-    # node_pop_underserved = (
-    #     lsoa[lsoa["is_underserved"]]
-    #     .groupby("lsoa_node")["population"].sum()
-    #     .to_dict()
-    # )
-
     # candidates -> representative points -> nearest nodes
     cand_pts = candidates_gdf.geometry.representative_point()
     cand_nodes = ox.distance.nearest_nodes(G_proj, X=cand_pts.x.to_numpy(), Y=cand_pts.y.to_numpy())
@@ -132,9 +123,7 @@ def greedy_dynamic_select_sites(
     # DEMAND: grid points -> nodes -> population per node
     _, node_pop_total, demand_nodes_set = demand_pts_to_nodes_pop(demand_points_gdf, G_proj, pop_col="population")
 
-    # # population per node ( totla)
-    # node_pop_total = lsoa.groupby("lsoa_node")["population"].sum().to_dict()
-    # lsoa_nodes_set = set(node_pop_total.keys())
+
 
     # candidates -> nodes
     cand_pts = candidates_gdf.geometry.representative_point()
@@ -216,6 +205,18 @@ def greedy_dynamic_select_sites(
     iteration_number = 1
 
     metrics = current_access_metrics()
+
+    iteration_metrics = [{
+        "iteration": 0,
+        "parks_added": 0,
+        "selected_cand_id": None,
+        "overall_access_percent": metrics["overall_access_percent"],
+        "underserved_recovery_percent": metrics["underserved_recovery_percent"],
+        "marginal_overall_gain_pts": 0.0,
+        "marginal_underserved_recovery_pts": 0.0,
+    }]
+
+    
     stop_info = {
         "sites_selected": 0,
         "initial_overall_access_pct": initial_overall_access_percent,
@@ -259,6 +260,9 @@ def greedy_dynamic_select_sites(
         selected_rows.append(best)
         best_node = int(best["cand_node"])
 
+        prev_overall_access_percent = metrics["overall_access_percent"]
+        prev_underserved_recovery_percent = metrics["underserved_recovery_percent"]
+
         # update dist_to_park with new park node
         new_dists = nx.single_source_dijkstra_path_length(G_proj, best_node, weight="length")
         for n, d in new_dists.items():
@@ -272,6 +276,16 @@ def greedy_dynamic_select_sites(
                 underserved_nodes.remove(n)
 
         metrics = current_access_metrics()
+
+        iteration_metrics.append({
+            "iteration": iteration_number,
+            "parks_added": len(selected_rows),
+            "selected_cand_id": int(best["cand_id"]),
+            "overall_access_percent": metrics["overall_access_percent"],
+            "underserved_recovery_percent": metrics["underserved_recovery_percent"],
+            "marginal_overall_gain_pts": metrics["overall_access_percent"] - prev_overall_access_percent,
+            "marginal_underserved_recovery_pts": metrics["underserved_recovery_percent"] - prev_underserved_recovery_percent,
+        })
 
         met_conditions = []
 
@@ -341,4 +355,6 @@ def greedy_dynamic_select_sites(
     else:
         all_candidates_scored = gpd.GeoDataFrame(columns=["iteration"], geometry=[], crs=candidates.crs)
 
-    return selected, lsoa, stop_info, all_candidates_scored
+    iteration_metrics_df = pd.DataFrame(iteration_metrics)
+
+    return selected, lsoa, stop_info, all_candidates_scored, iteration_metrics_df

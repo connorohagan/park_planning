@@ -101,6 +101,27 @@ SCORING_PRESETS = {
         "W_SIZE": 0.40,
         "W_FLOOD": 0.30,
     },
+
+    ## Simple solutions for comparisons
+    # # distance from current parks only
+    # "distance_only": {
+    #     "desc": "Distance only: furthest from existing parks.",
+    #     "W_DEMAND_TOTAL": 0.0,
+    #     "W_DEMAND_UNDERSERVED": 0.0,
+    #     "W_PARK_DIST": 1.0,
+    #     "W_SIZE": 0.0,
+    #     "W_FLOOD": 0.0,
+    # },
+
+    # # largest parks only
+    # "size_only": {
+    #     "desc": "Size only: largest car parks.",
+    #     "W_DEMAND_TOTAL": 0.0,
+    #     "W_DEMAND_UNDERSERVED": 0.0,
+    #     "W_PARK_DIST": 0.0,
+    #     "W_SIZE": 1.0,
+    #     "W_FLOOD": 0.0,
+    # },
 }
 
 # flood combination

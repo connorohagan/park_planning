@@ -1,2 +1,2 @@
 preset_name,preset_desc,W_DEMAND_TOTAL,W_DEMAND_UNDERSERVED,W_PARK_DIST,W_SIZE,W_FLOOD,max_sites_rule,target_overall_access_percent_rule,target_underserved_recovery_percent_rule,initial_overall_access_pct,final_overall_access_percent,final_underserved_recovery_percent,sites_selected,stopping_criteria_met
-accessibility_focused,Focused on reducing distance to nearest park.,0.2,0.2,0.4,0.1,0.1,10,,,85.36063732602635,88.94749454949914,24.50145749752902,10,Max number of sites reached (10)
+accessibility_focused,Focused on reducing distance to nearest park.,0.2,0.2,0.4,0.1,0.1,10,,,65.23101812840694,70.86143899281912,16.193804251174676,10,Max number of sites reached (10)

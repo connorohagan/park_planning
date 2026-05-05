@@ -1,2 +1,2 @@
 preset_name,preset_desc,W_DEMAND_TOTAL,W_DEMAND_UNDERSERVED,W_PARK_DIST,W_SIZE,W_FLOOD,max_sites_rule,target_overall_access_percent_rule,target_underserved_recovery_percent_rule,initial_overall_access_pct,final_overall_access_percent,final_underserved_recovery_percent,sites_selected,stopping_criteria_met
-gap_coverage,"Close green-space gaps: underserved demand dominated, with high park distance.",0.1,0.5,0.2,0.1,0.1,30,70.0,,65.23101812840694,70.04552404507821,13.847129416823156,5,overall accessibility target met(70.05% >= 70.00%)
+gap_coverage,"Close green-space gaps: underserved demand dominated, with high park distance.",0.1,0.5,0.2,0.1,0.1,10,,,65.23101812840694,72.97762545121749,22.280224803302893,10,Max number of sites reached (10)

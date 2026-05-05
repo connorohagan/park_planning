@@ -1,2 +1,2 @@
 preset_name,preset_desc,W_DEMAND_TOTAL,W_DEMAND_UNDERSERVED,W_PARK_DIST,W_SIZE,W_FLOOD,max_sites_rule,target_overall_access_percent_rule,target_underserved_recovery_percent_rule,initial_overall_access_pct,final_overall_access_percent,final_underserved_recovery_percent,sites_selected,stopping_criteria_met
-demand_focused,Demand focused: Benefit maximum number of residents.,0.5,0.1,0.1,0.15,0.15,10,,,85.36063732602635,85.7789992348486,2.8577877202675013,10,Max number of sites reached (10)
+demand_focused,Demand focused: Benefit maximum number of residents.,0.5,0.1,0.1,0.15,0.15,10,,,65.23101812840694,67.66203429687008,6.991910713524007,10,Max number of sites reached (10)
